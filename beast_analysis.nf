@@ -52,7 +52,7 @@ process combine_logs{
             path("${xml}.log")
 
 """
-logcombiner   -burnin ${params.chainLength/params.burnin} \
+logcombiner   -burnin ${(params.chainLength/params.burnin).round(0)} \
 -resample ${(params.chainLength/10000)*params.n}  $logs  ${xml}.log
 """
 }
@@ -67,7 +67,7 @@ process combine_trees{
             path("${xml}.trees")
 
 """
-logcombiner  -trees -burnin ${params.chainLength/params.burnin} \
+logcombiner  -trees -burnin ${(params.chainLength/params.burnin).round(0)} \
 -resample ${(params.chainLength/10000)*params.n}  $trees  ${xml}.trees
 """
 }
