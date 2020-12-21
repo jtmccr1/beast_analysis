@@ -9,7 +9,6 @@ def random= new Random(params.seed)
 
 params.n=1
 params.chainLength=1000000  
-params.cpu=4
 params.burnin=10
 params.xml=""
 params.beast_options=""
@@ -22,8 +21,7 @@ for(int i=0;i<params.n;i++){
 }
 
 params.outDir="./"
-process run_beast{
-        cpus params.cpu
+process beast{
     	publishDir "${params.outDir}/${workflow.runName}/", mode:"copy", overwrite:"true", pattern: "*log"
     	publishDir "${params.outDir}/${workflow.runName}/", mode:"copy", overwrite:"true", pattern: "*out"
     	publishDir "${params.outDir}/${workflow.runName}/", mode:"copy", overwrite:"true", pattern: "*trees"
@@ -89,8 +87,8 @@ xml_ch=channel.fromPath(params.xml).flatMap()
 
 workflow {
     
-    run_beast(xml_ch.combine(channel.from(beast_seeds)))
-    combine_logs( run_beast.out.logs.groupTuple(size:params.n))
-    combine_trees(run_beast.out.trees.groupTuple(size:params.n))
+    beast(xml_ch.combine(channel.from(beast_seeds)))
+    combine_logs( beast.out.logs.groupTuple(size:params.n))
+    combine_trees(beast.out.trees.groupTuple(size:params.n))
     mcc(combine_trees.out)
 }
