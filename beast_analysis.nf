@@ -49,7 +49,7 @@ process combine_logs{
             path("${xml}.b${burnin}.thin${thinning}.log")
 
 """
-RESAMPLE=\$(tail -n2 ${logs[0]} | awk '{print \$1}'| sort  |paste -sd- - | bc | awk '{printf "%0.f", \$1*$thinning*$params.n}')
+RESAMPLE=\$(tail -n2 ${logs[0]} | awk '{print \$1}'| sort  |paste -sd- - | bc | awk '{printf "%0.f", \$1*$thinning}')
 BURNIN=\$(tail -n1 ${logs[0]}| awk '{printf "%.0f", \$1*($burnin/100)}')
 logcombiner -burnin \${BURNIN} \
 -resample \${RESAMPLE}  $logs  ${xml}.b${burnin}.thin${thinning}.log
@@ -66,7 +66,7 @@ process combine_trees{
         output:
             path("${xml}.b${burnin}.thin${thinning}.trees")
 """
-RESAMPLE=\$(awk '/^tree/{split(\$2,a,"_"); printf "%s\\n",a[2]}' ${trees[0]} | tail -n2 | sort  |paste -sd- - | bc| awk '{printf "%0.f", \$1*$thinning*$params.n}')
+RESAMPLE=\$(awk '/^tree/{split(\$2,a,"_"); printf "%s\\n",a[2]}' ${trees[0]} | tail -n2 | sort  |paste -sd- - | bc| awk '{printf "%0.f", \$1*$thinning}')
 BURNIN=\$(awk '/^tree/{split(\$2,a,"_"); printf "%s\\n",a[2]}' ${trees[0]} | tail -n1| awk '{printf "%.0f", \$1*($burnin/100)}')
 logcombiner  -trees   -burnin \${BURNIN} \
 -resample \${RESAMPLE}  $trees  ${xml}.b${burnin}.thin${thinning}.trees
