@@ -17,7 +17,7 @@ params.tree_thinning_factor=params.thinning_factor;
 beast_seeds = [];
 params.xml = null;
 params.data = null;
-params.tempate=null;
+params.template=null;
 
 for(int i=0;i<params.n;i++){
     beast_seeds.add(random.nextInt() & Integer.MAX_VALUE)
