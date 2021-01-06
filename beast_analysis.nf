@@ -6,37 +6,49 @@ println(params.seed)
 def random= new Random(params.seed)
 
 
-
 params.n=2
-params.burnin=[10,20];
-params.thinning_factor=[2,4];
+params.burnin=[10];
+params.thinning_factor=[2];
 params.beast_options="";
 
+params.save_every=0;
 params.tree_burnin=params.burnin;
 params.tree_thinning_factor=params.thinning_factor;
-
-
 beast_seeds = [];
-
-
+params.xml = null;
+params.data = null;
+params.tempate=null;
 
 for(int i=0;i<params.n;i++){
     beast_seeds.add(random.nextInt() & Integer.MAX_VALUE)
 }
 
 params.outDir="./"
+
+process beastgen{
+	    publishDir "${params.outDir}/", mode:"copy", overwrite:"true"
+		input:
+			tuple path(data), path(template)
+		output:
+			path("*xml")
+			
+"""
+cp $template ./local_template
+beastgen -date_order -1 -date_prefix "|" -date_precision -D "outputStem=${data.name.take(data.name.lastIndexOf('.'))}.${template.name.take(template.name.lastIndexOf('.'))}"	local_template $data ${data.name.take(data.name.lastIndexOf('.'))}.${template.name.take(template.name.lastIndexOf('.'))}.xml
+"""
+}
 process beast{
     	publishDir "${params.outDir}/", mode:"copy", overwrite:"true"
         input:
                tuple path(xml_file), val(seed)
         output:
-                tuple val("${xml_file.name}"), path("*log"), emit: logs
-                tuple val("${xml_file.name}"), path("*trees"), emit:trees
+                tuple val("${xml_file.name.take(xml_file.name.lastIndexOf('.'))}"), path("*log"), emit: logs
+                tuple val("${xml_file.name.take(xml_file.name.lastIndexOf('.'))}"), path("*trees"), emit:trees
                 path("*ops")
                 path("*out")
                 path("*chkpt") optional true
 """
-beast   -prefix ${seed}_ -seed ${seed} ${params.beast_options}  ${xml_file} > ${seed}_${xml_file.name}.out
+beast  ${(params.save_every>0? "-save_every ${params.save_every} -save_state ${xml_file.name.take(xml_file.name.lastIndexOf('.'))}.chkpt":'')}  -prefix ${seed}_ -seed ${seed} ${params.beast_options}  ${xml_file} > ${seed}_${xml_file.name.take(xml_file.name.lastIndexOf('.'))}.out
 """
 }
 
@@ -87,15 +99,28 @@ treeannotator  $tree ${tree.name}.mcc.tree
 }
 
 
-xml_ch=channel.fromPath(params.xml).flatMap()
 burnin_ch=channel.from(params.burnin)
 thinning_ch=channel.from(params.thinning_factor)
 tree_burnin_ch=channel.from(params.tree_burnin)
 tree_thinning_ch=channel.from(params.tree_thinning_factor)
 
+if(params.xml==null &&(params.data==null || params.template==null)){
+			throw new Exception("must provide either xml or datafile and template")
+		}
+
 workflow {
-    
-    beast(xml_ch.combine(channel.from(beast_seeds)))
+
+	if(params.xml!=null){
+   	 	xml_ch=channel.fromPath(params.xml).flatMap()
+    	beast(xml_ch.combine(channel.from(beast_seeds)))
+	}else{
+	
+		data_ch=channel.fromPath(params.data).flatMap()
+		template_ch=channel.fromPath(params.template).flatMap()
+		beastgen(data_ch.combine(template_ch))
+		beast(beastgen.out.combine(channel.from(beast_seeds)))
+	}
+
     combine_logs(beast.out.logs.groupTuple(size:params.n).combine(burnin_ch).combine(thinning_ch))
    	combine_trees(beast.out.trees.groupTuple(size:params.n).combine(tree_burnin_ch).combine(tree_thinning_ch))
 	mcc(combine_trees.out)
