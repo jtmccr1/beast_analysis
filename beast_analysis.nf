@@ -1,29 +1,41 @@
 #!/usr/bin/env nextflow
 nextflow.enable.dsl=2                                                                                                    
 
-params.seed=new Date().getTime()
-println(params.seed)
 def random= new Random(params.seed)
 
-
-params.n=2
-params.burnin=[10];
-params.thinning_factor=[2];
-params.beast_options="";
-
-params.save_every=0;
-params.tree_burnin=params.burnin;
-params.tree_thinning_factor=params.thinning_factor;
-beast_seeds = [];
-params.xml = null;
-params.data = null;
-params.template=null;
-
+beast_seeds=[];
+def outputDateFormat = "yyyy-MM-dd'T'HH:mm:ssZ"
+now = new Date().format(outputDateFormat)
 for(int i=0;i<params.n;i++){
     beast_seeds.add(random.nextInt() & Integer.MAX_VALUE)
 }
 
 params.outDir="./"
+
+process make_config {
+publishDir "${params.outDir}/", mode:"copy", overwrite:"true"
+output:
+	path(("*.params.txt"))
+"""
+echo "params {
+    n=${params.n};
+    burnin=${params.burnin};
+    thinning_factor=${params.thinning_factor};
+    beast_options=\\"${params.beast_options}\\";
+    jvm_options=\\"${params.jvm_options}\\";
+    seed=${params.seed};
+    save_every=${params.save_every};
+    tree_burnin=${params.tree_burnin};
+    tree_thinning_factor=${params.tree_thinning_factor};
+    xml = ${params.xml};
+    data = ${params.data};
+    template=${params.template};
+}
+" > ${now}.params.txt
+
+"""
+
+}
 
 process beastgen{
 	    publishDir "${params.outDir}/", mode:"copy", overwrite:"true"
@@ -48,6 +60,7 @@ process beast{
                 path("*out")
                 path("*chkpt") optional true
 """
+export JAVA_TOOL_OPTIONS='${params.jvm_options}'
 beast  ${(params.save_every>0? "-save_every ${params.save_every} -save_state ${xml_file.name.take(xml_file.name.lastIndexOf('.'))}.chkpt":'')}  -prefix ${seed}_ -seed ${seed} ${params.beast_options}  ${xml_file} > ${seed}_${xml_file.name.take(xml_file.name.lastIndexOf('.'))}.out
 """
 }
@@ -109,7 +122,8 @@ if(params.xml==null &&(params.data==null || params.template==null)){
 		}
 
 workflow {
-
+	make_config()
+	println("running beast workflow with seed ${params.seed}")
 	if(params.xml!=null){
    	 	xml_ch=channel.fromPath(params.xml).flatMap()
     	beast(xml_ch.combine(channel.from(beast_seeds)))
