@@ -55,7 +55,7 @@ process beast{
                tuple path(xml_file), val(seed)
         output:
                 tuple val("${xml_file.name.take(xml_file.name.lastIndexOf('.'))}"), path("*log"), emit: logs
-                tuple val("${xml_file.name.take(xml_file.name.lastIndexOf('.'))}"), path("*trees"), emit:trees
+                tuple val("${xml_file.name.take(xml_file.name.lastIndexOf('.'))}"), path("*trees"), emit:trees, optional true
                 path("*ops")
                 path("*out")
                 path("*chkpt") optional true
@@ -134,8 +134,10 @@ workflow {
 		beastgen(data_ch.combine(template_ch))
 		beast(beastgen.out.combine(channel.from(beast_seeds)))
 	}
-
+    if(n>1){
     combine_logs(beast.out.logs.groupTuple(size:params.n).combine(burnin_ch).combine(thinning_ch))
    	combine_trees(beast.out.trees.groupTuple(size:params.n).combine(tree_burnin_ch).combine(tree_thinning_ch))
-	mcc(combine_trees.out)
+    mcc(combine_trees.out)
+    }
+    mcc(beast.out.trees)
 }
