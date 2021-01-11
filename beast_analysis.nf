@@ -61,7 +61,7 @@ process beast{
                 path("*chkpt") optional true
 """
 export JAVA_TOOL_OPTIONS='${params.jvm_options}'
-beast  ${(params.save_every>0? "-save_every ${params.save_every} -save_state ${xml_file.name.take(xml_file.name.lastIndexOf('.'))}.chkpt":'')}  -prefix ${seed}_ -seed ${seed} ${params.beast_options}  ${xml_file} > ${seed}_${xml_file.name.take(xml_file.name.lastIndexOf('.'))}.out
+beast  ${(params.save_every>0? "-save_every ${params.save_every} -save_state ${seed}_${xml_file.name.take(xml_file.name.lastIndexOf('.'))}.chkpt":'')}  -prefix ${seed}_ -seed ${seed} ${params.beast_options}  ${xml_file} > ${seed}_${xml_file.name.take(xml_file.name.lastIndexOf('.'))}.out
 """
 }
 
