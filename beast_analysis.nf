@@ -30,6 +30,7 @@ echo "params {
     xml = ${params.xml};
     data = ${params.data};
     template=${params.template};
+    process_beast=${params.process_beast};
 }
 " > ${now}.params.txt
 
@@ -55,7 +56,7 @@ process beast{
                tuple path(xml_file), val(seed)
         output:
                 tuple val("${xml_file.name.take(xml_file.name.lastIndexOf('.'))}"), path("*log"), emit: logs
-                tuple val("${xml_file.name.take(xml_file.name.lastIndexOf('.'))}"), path("*trees"), emit:trees, optional true
+                tuple val("${xml_file.name.take(xml_file.name.lastIndexOf('.'))}"), path("*trees"), emit:trees
                 path("*ops")
                 path("*out")
                 path("*chkpt") optional true
@@ -122,22 +123,25 @@ if(params.xml==null &&(params.data==null || params.template==null)){
 		}
 
 workflow {
-	make_config()
-	println("running beast workflow with seed ${params.seed}")
-	if(params.xml!=null){
-   	 	xml_ch=channel.fromPath(params.xml).flatMap()
-    	beast(xml_ch.combine(channel.from(beast_seeds)))
-	}else{
-	
-		data_ch=channel.fromPath(params.data).flatMap()
-		template_ch=channel.fromPath(params.template).flatMap()
-		beastgen(data_ch.combine(template_ch))
-		beast(beastgen.out.combine(channel.from(beast_seeds)))
-	}
-    if(n>1){
-    combine_logs(beast.out.logs.groupTuple(size:params.n).combine(burnin_ch).combine(thinning_ch))
-   	combine_trees(beast.out.trees.groupTuple(size:params.n).combine(tree_burnin_ch).combine(tree_thinning_ch))
-    mcc(combine_trees.out)
+        make_config()
+        println("running beast workflow with seed ${params.seed}")
+        if(params.xml!=null){
+            xml_ch=channel.fromPath(params.xml).flatMap()
+            beast(xml_ch.combine(channel.from(beast_seeds)))
+        }else{
+            data_ch=channel.fromPath(params.data).flatMap()
+            template_ch=channel.fromPath(params.template).flatMap()
+            beastgen(data_ch.combine(template_ch))
+            beast(beastgen.out.combine(channel.from(beast_seeds)))
+        }
+    if(params.process_beast){
+        if(params.n>1){
+            combine_logs(beast.out.logs.groupTuple(size:params.n).combine(burnin_ch).combine(thinning_ch))
+            combine_trees(beast.out.trees.groupTuple(size:params.n).combine(tree_burnin_ch).combine(tree_thinning_ch))
+            mcc(combine_trees.out)
+        }
     }
-    mcc(beast.out.trees)
 }
+
+
+
