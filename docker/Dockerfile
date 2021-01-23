@@ -5,4 +5,5 @@ bc
 
 COPY bin/ ./bin/
 COPY lib ./lib/
+RUN chmod +x bin/gotree
 ENV PATH $PATH:bin/

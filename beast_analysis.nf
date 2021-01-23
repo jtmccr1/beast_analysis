@@ -38,6 +38,31 @@ echo "params {
 
 }
 
+process iqtree{
+
+    publishDir "${params.outDir}/iqtree", mode:"copy", overwrite:"true"
+    input:
+        path(fasta)
+    output:
+        path("*treefile"), emit: tree
+        path("*log")
+"""
+iqtree2 \
+    -s $fasta \
+    ${params.iqtree_options}
+"""
+}
+process process_iqtree {
+    input:
+    path(tree)
+    output:
+    path("*nexus")
+"""
+
+    gotree collapse length -l ${params.min_br} -i $tree |  gotree reformat nexus -o ${tree.name.take(tree.name.lastIndexOf('.'))}.nexus
+"""
+}
+
 process beastgen{
 	    publishDir "${params.outDir}/", mode:"copy", overwrite:"true"
 		input:
@@ -47,9 +72,14 @@ process beastgen{
 			
 """
 cp $template ./local_template
-beastgen -date_order -1 -date_prefix "|" -date_precision -D "outputStem=${data.name.take(data.name.lastIndexOf('.'))}.${template.name.take(template.name.lastIndexOf('.'))}"	local_template $data ${data.name.take(data.name.lastIndexOf('.'))}.${template.name.take(template.name.lastIndexOf('.'))}.xml
+beastgen -date_order -1 -date_prefix "|" -date_precision \
+    -D "outputStem=${data.name.take(data.name.lastIndexOf('.'))}.${template.name.take(template.name.lastIndexOf('.'))}" \
+    local_template \
+    $data \
+    ${data.name.take(data.name.lastIndexOf('.'))}.${template.name.take(template.name.lastIndexOf('.'))}.xml
 """
 }
+
 process beast{
     	publishDir "${params.outDir}/", mode:"copy", overwrite:"true"
         input:
@@ -118,7 +148,7 @@ thinning_ch=channel.from(params.thinning_factor)
 tree_burnin_ch=channel.from(params.tree_burnin)
 tree_thinning_ch=channel.from(params.tree_thinning_factor)
 
-if(params.xml==null &&(params.data==null || params.template==null)){
+if(params.xml==null && (params.data==null || params.template==null) && (params.fasta==null  || params.template==null)){
 			throw new Exception("must provide either xml or datafile and template")
 		}
 
@@ -128,6 +158,13 @@ workflow {
         if(params.xml!=null){
             xml_ch=channel.fromPath(params.xml).flatMap()
             beast(xml_ch.combine(channel.from(beast_seeds)))
+        }else if(params.fasta!=null){
+            fasta_ch = channel.fromPath(params.fasta).flatMap();
+            iqtree(fasta_ch);
+            process_iqtree(iqtree.out.tree)
+            template_ch=channel.fromPath(params.template).flatMap()
+            beastgen(process_iqtree.out.combine(template_ch))
+            beast(beastgen.out.combine(channel.from(beast_seeds)))
         }else{
             data_ch=channel.fromPath(params.data).flatMap()
             template_ch=channel.fromPath(params.template).flatMap()
