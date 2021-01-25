@@ -53,6 +53,7 @@ iqtree2 \
 """
 }
 process process_iqtree {
+    publishDir "${params.outDir}/iqtree", mode:"copy", overwrite:"true"
     input:
     path(tree)
     output:
